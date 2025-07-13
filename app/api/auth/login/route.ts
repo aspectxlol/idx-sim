@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getUserByEmail, verifyPassword, generateJWT } from "@/lib/auth"
+import { authenticateUser, generateJWT } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,36 +9,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    // Get user by email
-    const user = await getUserByEmail(email)
+    const user = await authenticateUser(email, password)
     if (!user) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    // Verify password
-    const isValidPassword = await verifyPassword(password, (user as any).password_hash)
-    if (!isValidPassword) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-    }
+    const token = await generateJWT(user.id)
 
-    // Generate JWT
-    const token = await generateJWT({
-      userId: user.id,
-      email: user.email,
-      type: "web",
-    })
-
-    return NextResponse.json({
+    const response = NextResponse.json({
       message: "Login successful",
       user: {
         id: user.id,
         email: user.email,
-        full_name: user.full_name,
+        name: user.name,
         virtual_balance: user.virtual_balance,
-        api_key: user.api_key,
       },
-      token,
     })
+
+    response.cookies.set("auth-token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+    })
+
+    return response
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }

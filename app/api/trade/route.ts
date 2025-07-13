@@ -7,17 +7,21 @@ export async function POST(request: NextRequest) {
   try {
     const userId = request.headers.get("x-user-id")
     if (!userId) {
-      return NextResponse.json({ error: "User ID not found" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const { symbol, type, quantity } = await request.json()
 
-    if (!symbol || !type || !quantity || quantity <= 0) {
-      return NextResponse.json({ error: "Invalid trade parameters" }, { status: 400 })
+    if (!symbol || !type || !quantity) {
+      return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
     }
 
-    if (!["BUY", "SELL"].includes(type.toUpperCase())) {
+    if (!["BUY", "SELL"].includes(type)) {
       return NextResponse.json({ error: "Invalid trade type" }, { status: 400 })
+    }
+
+    if (quantity <= 0) {
+      return NextResponse.json({ error: "Quantity must be positive" }, { status: 400 })
     }
 
     // Get stock information
@@ -31,75 +35,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Stock not found" }, { status: 404 })
     }
 
-    // Get user's current balance
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("virtual_balance")
-      .eq("id", userId)
-      .single()
-
-    if (userError || !user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    const tradeValue = quantity * stock.current_price
-    const tradeType = type.toUpperCase()
-
-    if (tradeType === "BUY") {
-      // Check if user has enough balance
-      if (user.virtual_balance < tradeValue) {
-        return NextResponse.json({ error: "Insufficient balance" }, { status: 400 })
-      }
-
-      // Execute buy transaction
-      const { error: transactionError } = await supabase.rpc("execute_buy_trade", {
+    // Execute trade using stored procedure
+    const { data: result, error: tradeError } = await supabase.rpc(
+      type === "BUY" ? "execute_buy_order" : "execute_sell_order",
+      {
         p_user_id: userId,
         p_stock_id: stock.id,
         p_quantity: quantity,
         p_price: stock.current_price,
-        p_total_value: tradeValue,
-      })
+      },
+    )
 
-      if (transactionError) {
-        console.error("Buy trade error:", transactionError)
-        return NextResponse.json({ error: "Failed to execute buy trade" }, { status: 500 })
-      }
-    } else {
-      // SELL - Check if user has enough shares
-      const { data: holding, error: holdingError } = await supabase
-        .from("portfolio")
-        .select("quantity")
-        .eq("user_id", userId)
-        .eq("stock_id", stock.id)
-        .single()
-
-      if (holdingError || !holding || holding.quantity < quantity) {
-        return NextResponse.json({ error: "Insufficient shares to sell" }, { status: 400 })
-      }
-
-      // Execute sell transaction
-      const { error: transactionError } = await supabase.rpc("execute_sell_trade", {
-        p_user_id: userId,
-        p_stock_id: stock.id,
-        p_quantity: quantity,
-        p_price: stock.current_price,
-        p_total_value: tradeValue,
-      })
-
-      if (transactionError) {
-        console.error("Sell trade error:", transactionError)
-        return NextResponse.json({ error: "Failed to execute sell trade" }, { status: 500 })
-      }
+    if (tradeError) {
+      return NextResponse.json({ error: tradeError.message }, { status: 400 })
     }
 
     return NextResponse.json({
-      message: `${tradeType} order executed successfully`,
+      message: `${type} order executed successfully`,
       trade: {
-        symbol: stock.symbol,
-        type: tradeType,
+        symbol: symbol.toUpperCase(),
+        type,
         quantity,
         price: stock.current_price,
-        total_value: tradeValue,
+        total_value: quantity * stock.current_price,
       },
     })
   } catch (error) {

@@ -7,63 +7,69 @@ export async function GET(request: NextRequest) {
   try {
     const userId = request.headers.get("x-user-id")
     if (!userId) {
-      return NextResponse.json({ error: "User ID not found" }, { status: 401 })
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get user's current balance
-    const { data: user, error: userError } = await supabase
-      .from("users")
-      .select("virtual_balance")
-      .eq("id", userId)
-      .single()
-
-    if (userError || !user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Get user's portfolio holdings
-    const { data: holdings, error: holdingsError } = await supabase
+    // Get user's portfolio with stock information
+    const { data: portfolio, error } = await supabase
       .from("portfolio")
       .select(`
         *,
-        stocks (symbol, company_name, current_price)
+        stocks!inner(
+          symbol,
+          company_name,
+          current_price,
+          previous_close,
+          sector
+        )
       `)
       .eq("user_id", userId)
       .gt("quantity", 0)
 
-    if (holdingsError) {
+    if (error) {
       return NextResponse.json({ error: "Failed to fetch portfolio" }, { status: 500 })
     }
 
     // Calculate portfolio metrics
-    let totalPortfolioValue = 0
-    let totalUnrealizedPnL = 0
+    let totalValue = 0
+    let totalCost = 0
 
-    const portfolioWithMetrics = (holdings || []).map((holding: any) => {
+    const holdings = (portfolio || []).map((holding) => {
       const currentValue = holding.quantity * holding.stocks.current_price
-      const totalCost = holding.quantity * holding.average_price
-      const unrealizedPnL = currentValue - totalCost
-      const unrealizedPnLPercent = totalCost > 0 ? (unrealizedPnL / totalCost) * 100 : 0
+      const cost = holding.quantity * holding.average_price
+      const unrealizedPnL = currentValue - cost
+      const unrealizedPnLPercent = cost > 0 ? (unrealizedPnL / cost) * 100 : 0
 
-      totalPortfolioValue += currentValue
-      totalUnrealizedPnL += unrealizedPnL
+      totalValue += currentValue
+      totalCost += cost
 
       return {
-        ...holding,
+        id: holding.id,
+        symbol: holding.stocks.symbol,
+        company_name: holding.stocks.company_name,
+        quantity: holding.quantity,
+        average_price: holding.average_price,
+        current_price: holding.stocks.current_price,
         current_value: currentValue,
-        total_cost: totalCost,
+        total_cost: cost,
         unrealized_pnl: unrealizedPnL,
         unrealized_pnl_percent: unrealizedPnLPercent,
+        sector: holding.stocks.sector,
       }
     })
 
+    const totalUnrealizedPnL = totalValue - totalCost
+    const totalUnrealizedPnLPercent = totalCost > 0 ? (totalUnrealizedPnL / totalCost) * 100 : 0
+
     return NextResponse.json({
-      user: {
-        virtual_balance: user.virtual_balance,
-        total_portfolio_value: totalPortfolioValue,
+      holdings,
+      summary: {
+        total_value: totalValue,
+        total_cost: totalCost,
         total_unrealized_pnl: totalUnrealizedPnL,
+        total_unrealized_pnl_percent: totalUnrealizedPnLPercent,
+        holdings_count: holdings.length,
       },
-      holdings: portfolioWithMetrics,
     })
   } catch (error) {
     console.error("Portfolio API error:", error)
