@@ -7,12 +7,13 @@ interface RateLimitConfig {
   maxRequests: number // Max requests per window
 }
 
+// Update rate limits to 1000 requests per day instead of per minute
 const DEFAULT_LIMITS: Record<string, RateLimitConfig> = {
-  "/api/stocks": { windowMs: 60000, maxRequests: 100 }, // 100 requests per minute
-  "/api/portfolio": { windowMs: 60000, maxRequests: 60 }, // 60 requests per minute
-  "/api/trade": { windowMs: 60000, maxRequests: 30 }, // 30 trades per minute
-  "/api/transactions": { windowMs: 60000, maxRequests: 60 }, // 60 requests per minute
-  default: { windowMs: 60000, maxRequests: 100 },
+  "/api/stocks": { windowMs: 86400000, maxRequests: 1000 }, // 1000 requests per day (24 hours)
+  "/api/portfolio": { windowMs: 86400000, maxRequests: 1000 }, // 1000 requests per day
+  "/api/trade": { windowMs: 86400000, maxRequests: 500 }, // 500 trades per day (more conservative)
+  "/api/transactions": { windowMs: 86400000, maxRequests: 1000 }, // 1000 requests per day
+  default: { windowMs: 86400000, maxRequests: 1000 }, // 1000 requests per day default
 }
 
 export async function checkRateLimit(
