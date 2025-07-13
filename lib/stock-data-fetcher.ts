@@ -1,157 +1,129 @@
-// Real-time stock data fetcher for IDX stocks
-import { createClient } from "@supabase/supabase-js"
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-
-interface YahooFinanceQuote {
-  symbol: string
-  regularMarketPrice: number
-  regularMarketPreviousClose: number
-  regularMarketVolume: number
-  marketCap: number
-  regularMarketChange: number
-  regularMarketChangePercent: number
+interface YahooFinanceResponse {
+  chart: {
+    result: Array<{
+      meta: {
+        regularMarketPrice: number
+        previousClose: number
+        regularMarketVolume: number
+      }
+    }>
+  }
 }
 
-interface StockPrice {
-  symbol: string
+interface FinnhubResponse {
+  c: number // current price
+  pc: number // previous close
+  o: number // open
+  h: number // high
+  l: number // low
+}
+
+export async function fetchStockPrice(symbol: string): Promise<{
   current_price: number
   previous_close: number
-  volume: number
-  market_cap: number
-  change: number
   change_percent: number
-}
-
-// Yahoo Finance API endpoint (unofficial but free)
-const YAHOO_FINANCE_API = "https://query1.finance.yahoo.com/v8/finance/chart"
-
-// IDX stocks need .JK suffix for Yahoo Finance
-const IDX_SUFFIX = ".JK"
-
-export async function fetchRealStockPrice(symbol: string): Promise<StockPrice | null> {
+  volume: number
+} | null> {
   try {
-    const yahooSymbol = `${symbol}${IDX_SUFFIX}`
-    const response = await fetch(`${YAHOO_FINANCE_API}/${yahooSymbol}`)
-
-    if (!response.ok) {
-      console.error(`Failed to fetch ${symbol}: ${response.status}`)
-      return null
-    }
-
-    const data = await response.json()
-    const result = data.chart?.result?.[0]
-
-    if (!result) {
-      console.error(`No data found for ${symbol}`)
-      return null
-    }
-
-    const meta = result.meta
-    const currentPrice = meta.regularMarketPrice || meta.previousClose || 0
-    const previousClose = meta.previousClose || currentPrice
-    const volume = meta.regularMarketVolume || 0
-    const marketCap = meta.marketCap || 0
-
-    return {
-      symbol,
-      current_price: currentPrice,
-      previous_close: previousClose,
-      volume,
-      market_cap: marketCap,
-      change: currentPrice - previousClose,
-      change_percent: previousClose > 0 ? ((currentPrice - previousClose) / previousClose) * 100 : 0,
-    }
-  } catch (error) {
-    console.error(`Error fetching stock price for ${symbol}:`, error)
-    return null
-  }
-}
-
-export async function fetchMultipleStockPrices(symbols: string[]): Promise<StockPrice[]> {
-  const promises = symbols.map((symbol) => fetchRealStockPrice(symbol))
-  const results = await Promise.allSettled(promises)
-
-  return results
-    .filter(
-      (result): result is PromiseFulfilledResult<StockPrice> => result.status === "fulfilled" && result.value !== null,
+    // Try Yahoo Finance first (free, no API key needed)
+    const yahooResponse = await fetch(
+      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}.JK?interval=1d&range=1d`,
     )
-    .map((result) => result.value)
-}
 
-export async function updateAllStockPrices(): Promise<void> {
-  try {
-    // Get all stock symbols from database
-    const { data: stocks, error } = await supabase.from("stocks").select("symbol")
+    if (yahooResponse.ok) {
+      const data: YahooFinanceResponse = await yahooResponse.json()
+      const result = data.chart.result[0]
 
-    if (error) {
-      console.error("Error fetching stock symbols:", error)
-      return
-    }
+      if (result && result.meta) {
+        const currentPrice = result.meta.regularMarketPrice
+        const previousClose = result.meta.previousClose
+        const changePercent = ((currentPrice - previousClose) / previousClose) * 100
 
-    const symbols = stocks.map((stock) => stock.symbol)
-    console.log(`Updating prices for ${symbols.length} stocks...`)
-
-    // Fetch real prices in batches to avoid rate limiting
-    const batchSize = 5
-    for (let i = 0; i < symbols.length; i += batchSize) {
-      const batch = symbols.slice(i, i + batchSize)
-      const prices = await fetchMultipleStockPrices(batch)
-
-      // Update database with real prices
-      for (const price of prices) {
-        await supabase
-          .from("stocks")
-          .update({
-            current_price: price.current_price,
-            previous_close: price.previous_close,
-            volume: price.volume,
-            market_cap: price.market_cap,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("symbol", price.symbol)
-      }
-
-      // Wait between batches to respect rate limits
-      if (i + batchSize < symbols.length) {
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        return {
+          current_price: currentPrice,
+          previous_close: previousClose,
+          change_percent: changePercent,
+          volume: result.meta.regularMarketVolume || 0,
+        }
       }
     }
-
-    console.log("Stock prices updated successfully")
   } catch (error) {
-    console.error("Error updating stock prices:", error)
+    console.log(`Yahoo Finance failed for ${symbol}, trying Finnhub...`)
   }
+
+  // Fallback to Finnhub if available
+  if (process.env.FINNHUB_API_KEY) {
+    try {
+      const finnhubResponse = await fetch(
+        `https://finnhub.io/api/v1/quote?symbol=${symbol}.JK&token=${process.env.FINNHUB_API_KEY}`,
+      )
+
+      if (finnhubResponse.ok) {
+        const data: FinnhubResponse = await finnhubResponse.json()
+
+        if (data.c && data.pc) {
+          const changePercent = ((data.c - data.pc) / data.pc) * 100
+
+          return {
+            current_price: data.c,
+            previous_close: data.pc,
+            change_percent: changePercent,
+            volume: 0, // Finnhub doesn't provide volume in quote endpoint
+          }
+        }
+      }
+    } catch (error) {
+      console.log(`Finnhub failed for ${symbol}`)
+    }
+  }
+
+  return null
 }
 
-// Alternative: Finnhub API (requires API key but more reliable)
-export async function fetchStockPriceFromFinnhub(symbol: string): Promise<StockPrice | null> {
-  const apiKey = process.env.FINNHUB_API_KEY
-  if (!apiKey) {
-    console.warn("FINNHUB_API_KEY not set, using Yahoo Finance fallback")
-    return fetchRealStockPrice(symbol)
+export async function updateStockPrices(symbols: string[]): Promise<{
+  updated: number
+  failed: string[]
+}> {
+  const results = await Promise.allSettled(
+    symbols.map(async (symbol) => {
+      const priceData = await fetchStockPrice(symbol)
+      return { symbol, priceData }
+    }),
+  )
+
+  let updated = 0
+  const failed: string[] = []
+
+  for (const result of results) {
+    if (result.status === "fulfilled" && result.value.priceData) {
+      updated++
+    } else if (result.status === "fulfilled") {
+      failed.push(result.value.symbol)
+    } else {
+      failed.push("unknown")
+    }
   }
 
-  try {
-    const response = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol}.JK&token=${apiKey}`)
+  return { updated, failed }
+}
 
-    if (!response.ok) {
-      return fetchRealStockPrice(symbol) // Fallback to Yahoo Finance
-    }
+export function isMarketOpen(): boolean {
+  const now = new Date()
+  const jakartaTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Jakarta" }))
 
-    const data = await response.json()
+  const day = jakartaTime.getDay() // 0 = Sunday, 1 = Monday, etc.
+  const hour = jakartaTime.getHours()
+  const minute = jakartaTime.getMinutes()
+  const timeInMinutes = hour * 60 + minute
 
-    return {
-      symbol,
-      current_price: data.c || 0, // Current price
-      previous_close: data.pc || 0, // Previous close
-      volume: 0, // Finnhub doesn't provide volume in quote endpoint
-      market_cap: 0, // Would need separate API call
-      change: data.d || 0, // Change
-      change_percent: data.dp || 0, // Change percent
-    }
-  } catch (error) {
-    console.error(`Finnhub API error for ${symbol}:`, error)
-    return fetchRealStockPrice(symbol) // Fallback to Yahoo Finance
+  // IDX is closed on weekends
+  if (day === 0 || day === 6) {
+    return false
   }
+
+  // IDX trading hours: 9:00 AM - 4:00 PM Jakarta time
+  const marketOpen = 9 * 60 // 9:00 AM
+  const marketClose = 16 * 60 // 4:00 PM
+
+  return timeInMinutes >= marketOpen && timeInMinutes < marketClose
 }

@@ -1,36 +1,66 @@
-import { NextResponse } from "next/server"
-import { updateAllStockPrices } from "@/lib/stock-data-fetcher"
+import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
+import { fetchStockPrice, isMarketOpen } from "@/lib/stock-data-fetcher"
 
-// API endpoint to manually trigger stock price updates
-export async function POST() {
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+export async function POST(request: NextRequest) {
   try {
-    await updateAllStockPrices()
-    return NextResponse.json({ message: "Stock prices updated successfully" })
-  } catch (error) {
-    console.error("Error updating stock prices:", error)
-    return NextResponse.json({ error: "Failed to update stock prices" }, { status: 500 })
-  }
-}
+    const userId = request.headers.get("x-user-id")
+    if (!userId) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 })
+    }
 
-// GET endpoint to check when prices were last updated
-export async function GET() {
-  try {
-    const { createClient } = await import("@supabase/supabase-js")
-    const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+    // Get all stocks
+    const { data: stocks, error } = await supabase.from("stocks").select("id, symbol")
 
-    const { data, error } = await supabase
-      .from("stocks")
-      .select("symbol, updated_at")
-      .order("updated_at", { ascending: false })
-      .limit(1)
+    if (error || !stocks) {
+      return NextResponse.json({ error: "Failed to fetch stocks" }, { status: 500 })
+    }
 
-    if (error) throw error
+    const marketOpen = isMarketOpen()
+    let updated = 0
+    const failed: string[] = []
+
+    // Update prices for all stocks
+    for (const stock of stocks) {
+      try {
+        const priceData = await fetchStockPrice(stock.symbol)
+
+        if (priceData) {
+          const { error: updateError } = await supabase
+            .from("stocks")
+            .update({
+              current_price: priceData.current_price,
+              previous_close: priceData.previous_close,
+              change_percent: priceData.change_percent,
+              volume: priceData.volume,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", stock.id)
+
+          if (!updateError) {
+            updated++
+          } else {
+            failed.push(stock.symbol)
+          }
+        } else {
+          failed.push(stock.symbol)
+        }
+      } catch (error) {
+        failed.push(stock.symbol)
+      }
+    }
 
     return NextResponse.json({
-      last_updated: data?.[0]?.updated_at || null,
-      message: "Use POST to trigger price update",
+      message: "Price update completed",
+      market_open: marketOpen,
+      updated,
+      failed,
+      total: stocks.length,
     })
   } catch (error) {
-    return NextResponse.json({ error: "Failed to check update status" }, { status: 500 })
+    console.error("Price update error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

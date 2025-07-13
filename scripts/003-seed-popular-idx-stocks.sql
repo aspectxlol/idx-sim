@@ -1,59 +1,59 @@
--- Insert popular IDX stocks (real companies, prices will be fetched from API)
-INSERT INTO stocks (symbol, name, sector, current_price, previous_close, volume, market_cap) VALUES
--- Banking & Financial Services
-('BBRI', 'Bank Rakyat Indonesia Tbk', 'Financial Services', 4580.00, 4560.00, 28350000, 554000000000),
-('BBCA', 'Bank Central Asia Tbk', 'Financial Services', 8750.00, 8700.00, 15420000, 1068000000000),
-('BMRI', 'Bank Mandiri Tbk', 'Financial Services', 5425.00, 5400.00, 18920000, 432000000000),
-('BBNI', 'Bank Negara Indonesia Tbk', 'Financial Services', 6200.00, 6150.00, 12450000, 298000000000),
+-- Insert popular Indonesian stocks with initial prices
+INSERT INTO stocks (symbol, company_name, current_price, previous_close, change_percent, volume, market_cap, sector) VALUES
+-- Banking Sector
+('BBRI', 'Bank Rakyat Indonesia (Persero) Tbk', 4580, 4560, 0.44, 45234000, 550000000000000, 'Banking'),
+('BBCA', 'Bank Central Asia Tbk', 8775, 8750, 0.29, 12456000, 850000000000000, 'Banking'),
+('BMRI', 'Bank Mandiri (Persero) Tbk', 6225, 6200, 0.40, 23567000, 480000000000000, 'Banking'),
+('BBNI', 'Bank Negara Indonesia (Persero) Tbk', 5450, 5425, 0.46, 18934000, 320000000000000, 'Banking'),
 
 -- Technology & Telecommunications
-('GOTO', 'GoTo Gojek Tokopedia Tbk', 'Technology', 118.00, 115.00, 89420000, 45000000000),
-('TLKM', 'Telkom Indonesia Tbk', 'Telecommunications', 3640.00, 3620.00, 12580000, 359000000000),
-('EMTK', 'Elang Mahkota Teknologi Tbk', 'Media & Entertainment', 1285.00, 1275.00, 8920000, 15000000000),
-('EXCL', 'XL Axiata Tbk', 'Telecommunications', 2450.00, 2420.00, 18650000, 58000000000),
+('GOTO', 'GoTo Gojek Tokopedia Tbk', 70, 68, 2.94, 156789000, 45000000000000, 'Technology'),
+('TLKM', 'Telkom Indonesia (Persero) Tbk', 3640, 3620, 0.55, 34567000, 360000000000000, 'Telecommunications'),
+('EMTK', 'Elang Mahkota Teknologi Tbk', 1385, 1375, 0.73, 8934000, 28000000000000, 'Media & Technology'),
+('EXCL', 'XL Axiata Tbk', 2450, 2430, 0.82, 15678000, 58000000000000, 'Telecommunications'),
 
--- Consumer & Retail
-('UNVR', 'Unilever Indonesia Tbk', 'Consumer Non-Cyclicals', 2650.00, 2680.00, 4320000, 195000000000),
-('ICBP', 'Indofood CBP Sukses Makmur Tbk', 'Consumer Non-Cyclicals', 9025.00, 9000.00, 2180000, 89000000000),
-('INDF', 'Indofood Sukses Makmur Tbk', 'Consumer Non-Cyclicals', 6425.00, 6400.00, 3580000, 56000000000),
-('GGRM', 'Gudang Garam Tbk', 'Consumer Non-Cyclicals', 24500.00, 24200.00, 1250000, 146000000000),
-('HMSP', 'HM Sampoerna Tbk', 'Consumer Non-Cyclicals', 1385.00, 1375.00, 8940000, 163000000000),
-('MYOR', 'Mayora Indah Tbk', 'Consumer Non-Cyclicals', 2380.00, 2350.00, 5420000, 28000000000),
+-- Consumer Goods
+('UNVR', 'Unilever Indonesia Tbk', 2630, 2620, 0.38, 6789000, 195000000000000, 'Consumer Goods'),
+('ICBP', 'Indofood CBP Sukses Makmur Tbk', 10900, 10850, 0.46, 3456000, 95000000000000, 'Food & Beverages'),
+('INDF', 'Indofood Sukses Makmur Tbk', 6800, 6775, 0.37, 8234000, 59000000000000, 'Food & Beverages'),
+('GGRM', 'Gudang Garam Tbk', 18500, 18400, 0.54, 2345000, 85000000000000, 'Consumer Goods'),
+('HMSP', 'HM Sampoerna Tbk', 1385, 1375, 0.73, 12456000, 65000000000000, 'Consumer Goods'),
 
--- Automotive & Industrial
-('ASII', 'Astra International Tbk', 'Consumer Cyclicals', 5200.00, 5150.00, 8940000, 389000000000),
-('AUTO', 'Astra Otoparts Tbk', 'Consumer Cyclicals', 1850.00, 1820.00, 3580000, 18000000000),
-('INTP', 'Indocement Tunggal Prakarsa Tbk', 'Basic Materials', 8900.00, 8850.00, 1850000, 98000000000),
-('SMGR', 'Semen Indonesia Tbk', 'Basic Materials', 4320.00, 4300.00, 8920000, 51000000000),
+-- Industrial & Automotive
+('ASII', 'Astra International Tbk', 5575, 5550, 0.45, 23456000, 385000000000000, 'Automotive'),
+('AUTO', 'Astra Otoparts Tbk', 1750, 1740, 0.57, 4567000, 28000000000000, 'Automotive'),
+('INTP', 'Indocement Tunggal Prakarsa Tbk', 10200, 10150, 0.49, 3789000, 75000000000000, 'Building Materials'),
+('SMGR', 'Semen Indonesia (Persero) Tbk', 5225, 5200, 0.48, 8945000, 62000000000000, 'Building Materials'),
 
 -- Energy & Mining
-('ADRO', 'Adaro Energy Tbk', 'Energy', 2890.00, 2870.00, 45680000, 58000000000),
-('PTBA', 'Bukit Asam Tbk', 'Energy', 3280.00, 3250.00, 5420000, 39000000000),
-('ITMG', 'Indo Tambangraya Megah Tbk', 'Energy', 15200.00, 15100.00, 890000, 36000000000),
-('PGAS', 'Perusahaan Gas Negara Tbk', 'Energy', 1420.00, 1400.00, 12450000, 31000000000),
+('ADRO', 'Adaro Energy Tbk', 3020, 3000, 0.67, 45678000, 185000000000000, 'Mining'),
+('PTBA', 'Bukit Asam Tbk', 4150, 4125, 0.61, 12345000, 95000000000000, 'Mining'),
+('ITMG', 'Indo Tambangraya Megah Tbk', 23500, 23300, 0.86, 1234000, 142000000000000, 'Mining'),
+('PGAS', 'Perusahaan Gas Negara Tbk', 1545, 1535, 0.65, 18567000, 68000000000000, 'Energy'),
 
 -- Healthcare & Pharmaceuticals
-('KLBF', 'Kalbe Farma Tbk', 'Healthcare', 1545.00, 1535.00, 18650000, 98000000000),
-('KAEF', 'Kimia Farma Tbk', 'Healthcare', 3850.00, 3800.00, 2180000, 23000000000),
+('KLBF', 'Kalbe Farma Tbk', 1500, 1490, 0.67, 15678000, 48000000000000, 'Healthcare'),
+('KAEF', 'Kimia Farma Tbk', 1385, 1375, 0.73, 8934000, 18000000000000, 'Healthcare'),
 
 -- Infrastructure & Construction
-('JSMR', 'Jasa Marga Tbk', 'Industrials', 4180.00, 4150.00, 6820000, 25000000000),
-('WIKA', 'Wijaya Karya Tbk', 'Industrials', 1285.00, 1275.00, 15680000, 15000000000),
-('WSKT', 'Waskita Karya Tbk', 'Industrials', 142.00, 140.00, 89420000, 3000000000),
+('JSMR', 'Jasa Marga (Persero) Tbk', 4200, 4175, 0.60, 6789000, 58000000000000, 'Infrastructure'),
+('WIKA', 'Wijaya Karya (Persero) Tbk', 1385, 1375, 0.73, 12456000, 16500000000000, 'Construction'),
+('WSKT', 'Waskita Karya (Persero) Tbk', 1050, 1040, 0.96, 18934000, 12800000000000, 'Construction'),
 
--- Agriculture & Food
-('JPFA', 'Japfa Comfeed Indonesia Tbk', 'Consumer Non-Cyclicals', 1120.00, 1110.00, 12450000, 23000000000),
-('CPIN', 'Charoen Pokphand Indonesia Tbk', 'Consumer Non-Cyclicals', 4250.00, 4200.00, 8920000, 89000000000),
+-- Agriculture & Livestock
+('JPFA', 'Japfa Comfeed Indonesia Tbk', 1385, 1375, 0.73, 8934000, 28000000000000, 'Agriculture'),
+('CPIN', 'Charoen Pokphand Indonesia Tbk', 4200, 4175, 0.60, 15678000, 85000000000000, 'Agriculture'),
 
 -- Property & Real Estate
-('BSDE', 'Bumi Serpong Damai Tbk', 'Real Estate', 1285.00, 1270.00, 15680000, 28000000000),
-('LPKR', 'Lippo Karawaci Tbk', 'Real Estate', 142.00, 140.00, 89420000, 8000000000)
+('BSDE', 'Bumi Serpong Damai Tbk', 1385, 1375, 0.73, 23456000, 48000000000000, 'Property'),
+('LPKR', 'Lippo Karawaci Tbk', 196, 194, 1.03, 45678000, 13500000000000, 'Property')
 
 ON CONFLICT (symbol) DO UPDATE SET
-  name = EXCLUDED.name,
-  sector = EXCLUDED.sector,
-  current_price = EXCLUDED.current_price,
-  previous_close = EXCLUDED.previous_close,
-  volume = EXCLUDED.volume,
-  market_cap = EXCLUDED.market_cap,
-  updated_at = NOW();
+    company_name = EXCLUDED.company_name,
+    current_price = EXCLUDED.current_price,
+    previous_close = EXCLUDED.previous_close,
+    change_percent = EXCLUDED.change_percent,
+    volume = EXCLUDED.volume,
+    market_cap = EXCLUDED.market_cap,
+    sector = EXCLUDED.sector,
+    updated_at = NOW();

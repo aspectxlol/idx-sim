@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { getUserTransactions } from "@/lib/trading"
+import { createClient } from "@supabase/supabase-js"
+
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,11 +12,25 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const limit = Number.parseInt(searchParams.get("limit") || "50")
+    const offset = Number.parseInt(searchParams.get("offset") || "0")
 
-    const transactions = await getUserTransactions(userId, limit)
+    const { data: transactions, error } = await supabase
+      .from("transactions")
+      .select(`
+        *,
+        stocks (symbol, company_name)
+      `)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1)
 
-    return NextResponse.json({ transactions })
+    if (error) {
+      return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 })
+    }
+
+    return NextResponse.json({ transactions: transactions || [] })
   } catch (error) {
-    return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 })
+    console.error("Transactions API error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
